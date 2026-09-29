@@ -69,7 +69,7 @@ window.WORD_TRICKS = [
   { word: "their", zh: "他们的", method: "对比", grade: "primary", trick: "their(他们的，带 heir 像「继承」) / there(那里，有 here 的 e) / they're(他们是，=they are)。" },
   { word: "there", zh: "那里", method: "对比", grade: "primary", trick: "there(那里) 里含 here(这里) 的 e → 那里是「这里」的远处。" },
   { word: "they're", zh: "他们是", method: "对比", grade: "junior", trick: "they're = they are，带撇号；their 是所有格「他们的」。" },
-  { word: "its", zh: "它的", method:对比, grade: "primary", trick: "its(它的，无撇) vs it's(它是 = it is，有撇)。名词性所有格无撇，缩写有撇。" },
+  { word: "its", zh: "它的", method: "对比", grade: "primary", trick: "its(它的，无撇) vs it's(它是 = it is，有撇)。名词性所有格无撇，缩写有撇。" },
   { word: "it's", zh: "它是", method: "对比", grade: "primary", trick: "it's = it is，带撇号；its 是所有格「它的」无撇。" },
   { word: "your", zh: "你的", method: "对比", grade: "primary", trick: "your(你的，无撇) vs you're(你是 = you are，有撇)。" },
   { word: "you're", zh: "你是", method: "对比", grade: "junior", trick: "you're = you are，带撇；your 是「你的」无撇。" },

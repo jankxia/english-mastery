@@ -438,3 +438,39 @@ a:hover { text-decoration: underline; }
 .flash-trick { margin-top:12px; padding:9px 11px; background:rgba(242,184,5,.14); border:1px solid rgba(242,184,5,.4); border-radius:10px; font-size:14px; line-height:1.6; color:var(--ink); text-align:left; }
 .flash-trick::before { content:"💡 巧记 · "; font-weight:800; color:#b8860b; }
 
+/* 巧记卡片里的图片 / 手写口诀 */
+.trick-img { display:block; width:100%; max-width:240px; max-height:200px; object-fit:cover; border-radius:10px; margin:2px 0 10px; border:1px solid var(--line); }
+
+/* 添加我的巧记 · 图片上传 */
+.ta-file { padding:8px 10px; font-size:13px; }
+.ta-img-prev { display:inline-flex; align-items:center; }
+.ta-img-prev .trick-img { margin:0; max-width:64px; max-height:64px; }
+
+/* 随机抽考入口条 */
+.trick-quiz-bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:12px 0 4px; }
+.trick-quiz-tip { font-size:13px; color:var(--muted); }
+.trick-quiz-bar .check-all { background:var(--gold); color:#5a4500; border-color:transparent; }
+.trick-quiz-bar .check-all:hover { opacity:.92; }
+
+/* 随机抽考小游戏 */
+.trick-quiz { max-width:560px; margin:18px auto 0; }
+.trick-quiz .quiz-bar { display:flex; align-items:center; gap:14px; font-size:14px; font-weight:700; color:var(--muted); margin-bottom:12px; }
+.trick-quiz .quiz-bar b { color:var(--ink); }
+.trick-quiz .quiz-bar b.ok { color:var(--junior); }
+.trick-quiz .quiz-bar .back { margin-left:auto; }
+.quiz-flip { width:100%; max-width:480px; margin:0 auto; cursor:pointer; }
+.quiz-flip .inner { min-height:200px; }
+.quiz-flip .face { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:26px 22px; text-align:center; }
+.quiz-word { font-size:34px; font-weight:800; color:var(--ink); }
+.quiz-zh { font-size:16px; color:var(--muted); margin-top:4px; }
+.quiz-hint { font-size:13px; color:var(--muted); margin-top:14px; opacity:.8; }
+.quiz-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:16px; }
+.quiz-actions .trick-remember { color:var(--junior); border-color:rgba(43,182,115,.4); }
+.quiz-actions .trick-remember:hover { background:rgba(43,182,115,.1); }
+.quiz-done { text-align:center; padding:30px 20px; border:1px solid var(--line); border-radius:16px; background:#fff; }
+.quiz-done-emoji { font-size:54px; }
+.quiz-done h2 { margin:10px 0 6px; color:var(--ink); }
+.quiz-done p { color:var(--muted); font-size:15px; }
+.quiz-done b.ok { color:var(--junior); }
+.mode-pane.unit-tricks, .mode-pane[data-mode="tricks"] { }
+

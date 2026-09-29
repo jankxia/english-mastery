@@ -20,6 +20,8 @@
   var LS_TRICKS_DONE = "em_tricks_done_v1";
 
   var state = { grade: "all", dim: null, q: "", wordGrade: "primary", trickGrade: "all", trickQ: "" };
+  var quizState = null;      // 随机抽考小游戏的当前局状态
+  var pendingTrickImg = "";  // 添加「我的巧记」时暂存的图片 dataURL（入库后清空）
 
   /* ---------- 存储 ---------- */
   function loadProgress() {
@@ -616,6 +618,15 @@
     if (!unit) { root.innerHTML = '<div class="empty">找不到该单元 😢</div>'; return; }
     var words = unit.words || [];
 
+    // ① 巧记按教材单元自动关联：本单元哪些词有巧记，就列出来
+    var ut = tricksForWords(words.map(function (w) { return w.en; }));
+    var unitTricksHtml = ut.length ? (
+      '<div class="mode-pane" id="pane-tricks" data-mode="tricks" style="display:none">' +
+        '<div class="section-title"><span class="bar" style="background:var(--gold)"></span>💡 本单元易错巧记（' + ut.length + ' 条 · 点卡片翻面看巧记）</div>' +
+        '<div class="grid trick-grid">' + trickCardsHtml(ut) + '</div>' +
+      '</div>'
+    ) : '';
+
     var flash = words.map(function (w, i) {
       var tr = trickFor(w.en);
       var trickHtml = tr ? '<div class="flash-trick">💡 ' + esc(tr.trick) + '</div>' : '';
@@ -643,6 +654,7 @@
         '<span class="mode-tab" data-mode="spell">✍️ 拼写自测</span>' +
         '<span class="mode-tab" data-mode="read">🎤 跟读</span>' +
         '<span class="mode-tab" data-mode="phonics">🔤 拼读拆解</span>' +
+        (unitTricksHtml ? '<span class="mode-tab" data-mode="tricks">💡 本单元巧记</span>' : '') +
       '</div>' +
 
       '<div class="mode-pane" id="pane-flash" data-mode="flash">' +
@@ -664,6 +676,7 @@
         '<div class="section-title"><span class="bar" style="background:var(--senior)"></span>🔤 拼读拆解：学 → 读 → 选 → 拆分 → 拼读 → 拼写</div>' +
         '<div class="run-box" id="phonicsRun"></div>' +
       '</div>' +
+      unitTricksHtml +
       "</div>";
 
     var back = document.getElementById("back");
@@ -671,6 +684,7 @@
 
     bindTopTabs();
     bindWordUnit(grade, unit);
+    bindTrickCards(root);
   }
   function bindWordUnit(grade, unit) {
     var words = unit.words || [];
@@ -1458,6 +1472,37 @@
       return true;
     });
   }
+  // 给定一组单词（单元词表），返回与之匹配的巧记（种子 + 用户自增）
+  function tricksForWords(wordArr) {
+    var set = {};
+    (wordArr || []).forEach(function (w) { set[String(w).trim().toLowerCase()] = true; });
+    var out = [];
+    (TRICKS || []).forEach(function (t) { if (set[t.word]) out.push(t); });
+    loadUserTricks().forEach(function (t) {
+      if (set[t.word]) out.push({ word: t.word, zh: t.zh, trick: t.trick, method: t.method || "自创", grade: t.grade || "all", mine: true, img: t.img });
+    });
+    return out;
+  }
+  // 把用户上传的图片压成缩略图 dataURL（最大边 480，JPEG 0.7），避免撑爆 localStorage 配额
+  function fileToThumb(file, cb) {
+    if (!file) { cb(""); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 480, w = img.width, hgt = img.height;
+        if (w > max || hgt > max) { if (w >= hgt) { hgt = Math.round(hgt * max / w); w = max; } else { w = Math.round(w * max / hgt); hgt = max; } }
+        try {
+          var c = document.createElement("canvas"); c.width = w; c.height = hgt;
+          c.getContext("2d").drawImage(img, 0, 0, w, hgt);
+          cb(c.toDataURL("image/jpeg", 0.7));
+        } catch (e) { cb(reader.result); }
+      };
+      img.onerror = function () { cb(reader.result); };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
   function trickMethodCls(m) {
     if (m === "谐音") return "m-xie";
     if (m === "拆分") return "m-chai";
@@ -1477,6 +1522,7 @@
         '<div class="trick-head"><span class="trick-word">' + esc(t.word) + '</span>' +
         '<span class="trick-zh">' + esc(t.zh) + '</span>' +
         '<span class="trick-grade">' + trickGradeLabel(t.grade) + '</span></div>' +
+        (t.img ? '<img class="trick-img" src="' + esc(t.img) + '" alt="巧记图">' : '') +
         '<p class="trick-text">' + esc(t.trick) + '</p>' +
         '<div class="trick-foot">' +
           '<button class="trick-remember ' + (isDone ? "on" : "") + '" data-word="' + esc(t.word) + '">' + (isDone ? "✅ 已记住" : "📌 我记住了") + '</button>' +
@@ -1510,6 +1556,7 @@
     var root = document.getElementById("app");
     var h = hashStr || "#/tricks";
     var parts = h.replace(/^#\/tricks\/?/, "").split("/").filter(Boolean);
+    if (parts[0] === "quiz") { renderTrickQuiz(); return; }
     if (parts[0]) state.trickGrade = parts[0];
 
     var gtabs = '<div class="grade-tabs">' +
@@ -1525,6 +1572,8 @@
     root.innerHTML =
       topTabsHtml("tricks") +
       '<div class="words-intro">难词、易混词，用 <b>联想 / 谐音 / 拆分 / 对比 / 故事</b> 记，比死背快多了。点「📌 我记住了」记录进度；也能在下方「➕ 添加我的巧记」存自己的口诀（离线可用，永不丢失）。</div>' +
+      '<div class="trick-quiz-bar"><button class="check-all" id="trickQuizBtn">🎲 随机抽考（' + trickListFiltered().length + ' 张）</button>' +
+        '<span class="trick-quiz-tip">打乱顺序抽一张，翻面看巧记，记没记住自己打分</span></div>' +
       gtabs +
       '<div class="filters"><input class="search" id="trickSearch" placeholder="🔍 搜单词 / 中文 / 巧记法…" value="' + esc(state.trickQ) + '"></div>' +
       '<div class="grid trick-grid">' + gridHtml + '</div>' +
@@ -1536,6 +1585,10 @@
         '</div>' +
         '<textarea id="taTrick" class="ta-ta" placeholder="写下你的巧记法（口语化、孩子能看懂最好）"></textarea>' +
         '<div class="trick-add-row">' +
+          '<input type="file" id="taImg" class="ta-in ta-file" accept="image/*">' +
+          '<span class="ta-img-prev" id="taImgPrev"></span>' +
+        '</div>' +
+        '<div class="trick-add-row">' +
           '<select id="taMethod" class="ta-in">' +
             '<option value="自创">自创</option><option value="谐音">谐音</option><option value="拆分">拆分</option><option value="对比">对比</option><option value="联想">联想</option><option value="故事">故事</option>' +
           '</select>' +
@@ -1545,6 +1598,19 @@
       '</div>';
 
     bindTopTabs();
+
+    var qb = document.getElementById("trickQuizBtn");
+    if (qb) qb.onclick = function () { location.hash = "#/tricks/quiz"; };
+
+    var imgInput = document.getElementById("taImg");
+    var imgPrev = document.getElementById("taImgPrev");
+    if (imgInput) imgInput.onchange = function () {
+      var f = imgInput.files && imgInput.files[0];
+      fileToThumb(f, function (d) {
+        pendingTrickImg = d || "";
+        if (imgPrev) imgPrev.innerHTML = pendingTrickImg ? '<img class="trick-img" src="' + esc(pendingTrickImg) + '">' : "";
+      });
+    };
 
     Array.prototype.forEach.call(root.querySelectorAll(".grade-tab[data-tgrade]"), function (t) {
       t.onclick = function () { state.trickGrade = t.getAttribute("data-tgrade"); location.hash = "#/tricks/" + state.trickGrade; };
@@ -1572,11 +1638,87 @@
       var u = loadUserTricks();
       var found = false;
       for (var i = 0; i < u.length; i++) { if (u[i].word === w) { u[i].zh = zh; u[i].trick = tr; u[i].method = mEl.value; found = true; break; } }
-      if (!found) u.push({ word: w, zh: zh, trick: tr, method: mEl.value, grade: "all" });
+      if (!found) u.push({ word: w, zh: zh, trick: tr, method: mEl.value, grade: "all", img: pendingTrickImg });
+      if (found && pendingTrickImg) u[i].img = pendingTrickImg;
       saveUserTricks(u);
+      pendingTrickImg = "";
+      if (imgInput) imgInput.value = "";
+      if (imgPrev) imgPrev.innerHTML = "";
       if (fb) { fb.textContent = "✅ 已保存，可在上方列表中看到（带「我的」标记）"; fb.className = "read-fb ok"; }
       renderWordTricks();
     };
+  }
+
+  /* ---------- 随机抽考小游戏 ---------- */
+  function renderTrickQuiz() {
+    var root = document.getElementById("app");
+    // 进局：没局 或 上一局已答完 → 用当前筛选重建一副打乱的牌
+    if (!quizState || quizState.idx >= quizState.items.length) {
+      var deck = trickListFiltered();
+      if (!deck.length) {
+        root.innerHTML = topTabsHtml("tricks") + '<div class="empty">没有可抽考的巧记，换个筛选条件或先添加巧记 🐾</div>';
+        bindTopTabs();
+        return;
+      }
+      deck = deck.slice();
+      for (var i = deck.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = deck[i]; deck[i] = deck[j]; deck[j] = t; }
+      quizState = { items: deck, idx: 0, known: 0 };
+    }
+    var q = quizState;
+    var it = q.items[q.idx];
+    var total = q.items.length;
+    function flipHtml(flipped) {
+      return '<div class="flip quiz-flip ' + (flipped ? "flipped" : "") + '" id="quizCard"><div class="inner">' +
+        '<div class="face front"><div class="quiz-word">' + esc(it.word) + '</div><div class="quiz-zh">' + esc(it.zh) + '</div><div class="quiz-hint">👆 点卡片翻面看巧记</div></div>' +
+        '<div class="face back"><span class="trick-method ' + trickMethodCls(it.method) + '">' + esc(it.method || "巧记") + '</span>' +
+          (it.img ? '<img class="trick-img" src="' + esc(it.img) + '">' : '') +
+          '<p class="trick-text">' + esc(it.trick) + '</p></div>' +
+        '</div></div>';
+    }
+    root.innerHTML = topTabsHtml("tricks") +
+      '<div class="trick-quiz">' +
+        '<div class="quiz-bar"><span>第 <b>' + (q.idx + 1) + '</b> / ' + total + ' 张</span><span>已记住 <b class="ok">' + q.known + '</b></span>' +
+          '<button class="back" id="quizExit">← 退出</button></div>' +
+        flipHtml(false) +
+        '<div class="quiz-actions">' +
+          '<button class="check-all" id="quizFlip">🔄 翻面看巧记</button>' +
+          '<button class="trick-remember" id="quizKnown">✅ 记住了</button>' +
+          '<button class="trick-del" id="quizSkip">🔁 没记住</button>' +
+        '</div>' +
+      '</div>';
+    bindTopTabs();
+    var card = document.getElementById("quizCard");
+    if (card) card.onclick = function () { card.classList.toggle("flipped"); };
+    var flipBtn = document.getElementById("quizFlip");
+    if (flipBtn) flipBtn.onclick = function () { if (card) card.classList.add("flipped"); };
+    var knownBtn = document.getElementById("quizKnown");
+    if (knownBtn) knownBtn.onclick = function () { q.known++; q.idx++; advanceQuiz(); };
+    var skipBtn = document.getElementById("quizSkip");
+    if (skipBtn) skipBtn.onclick = function () { q.idx++; advanceQuiz(); };
+    var exit = document.getElementById("quizExit");
+    if (exit) exit.onclick = function () { quizState = null; location.hash = "#/tricks"; };
+  }
+  function advanceQuiz() {
+    var q = quizState;
+    if (!q) return;
+    if (q.idx >= q.items.length) {
+      var root = document.getElementById("app");
+      root.innerHTML = topTabsHtml("tricks") +
+        '<div class="trick-quiz quiz-done">' +
+          '<div class="quiz-done-emoji">🎉</div>' +
+          '<h2>抽考完成！</h2>' +
+          '<p>共 ' + q.items.length + ' 张，你记住了 <b class="ok">' + q.known + '</b> 张（正确率 ' + Math.round(q.known / q.items.length * 100) + '%）。</p>' +
+          '<div class="quiz-actions"><button class="check-all" id="quizAgain">🔁 再来一局</button>' +
+          '<button class="back" id="quizBack">返回列表</button></div>' +
+        '</div>';
+      bindTopTabs();
+      var again = document.getElementById("quizAgain");
+      if (again) again.onclick = function () { quizState = null; location.hash = "#/tricks/quiz"; };
+      var back = document.getElementById("quizBack");
+      if (back) back.onclick = function () { quizState = null; location.hash = "#/tricks"; };
+    } else {
+      renderTrickQuiz();
+    }
   }
 
   /* ---------- 路由 ---------- */
