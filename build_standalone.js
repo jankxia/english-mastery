@@ -9,6 +9,7 @@ const words = fs.readFileSync(dir + '/js/words.js', 'utf8');
 const phx = fs.readFileSync(dir + '/js/phonics.js', 'utf8');
 const tb = fs.readFileSync(dir + '/js/textbook.js', 'utf8');
 const courses = fs.readFileSync(dir + '/js/courses.js', 'utf8');
+const tricks = fs.readFileSync(dir + '/js/wordtricks.js', 'utf8');
 const hls = fs.readFileSync(dir + '/js/lib/hls.min.js', 'utf8');
 
 function inline(linkRe, code) {
@@ -24,6 +25,7 @@ inline(/<script[^>]*src=["']js\/words\.js["'][^>]*>\s*<\/script>/, '<script>\n' 
 inline(/<script[^>]*src=["']js\/phonics\.js["'][^>]*>\s*<\/script>/, '<script>\n' + phx + '\n</script>');
 inline(/<script[^>]*src=["']js\/textbook\.js["'][^>]*>\s*<\/script>/, '<script>\n' + tb + '\n</script>');
 inline(/<script[^>]*src=["']js\/courses\.js["'][^>]*>\s*<\/script>/, '<script>\n' + courses + '\n</script>');
+inline(/<script[^>]*src=["']js\/wordtricks\.js["'][^>]*>\s*<\/script>/, '<script>\n' + tricks + '\n</script>');
 inline(/<script[^>]*src=["']js\/app\.js["'][^>]*>\s*<\/script>/, '<script>\n' + hls + '\n</script>\n<script>\n' + app + '\n</script>');
 
 fs.writeFileSync(dir + '/english-mastery-standalone.html', html);

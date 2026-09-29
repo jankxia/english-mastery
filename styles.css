@@ -404,3 +404,37 @@ a:hover { text-decoration: underline; }
 .lesson-actions { margin-top:8px; }
 .lesson-link { display:inline-block; padding:7px 14px; border-radius:10px; background:var(--primary); color:#fff; font-weight:700; font-size:13px; text-decoration:none; }
 .lesson-link:hover { opacity:.92; }
+
+/* ---------- 单词巧记（💡 第 5 个 Tab） ---------- */
+.trick-grid { margin-top:6px; }
+.trick-card { position:relative; border:1px solid var(--line); border-radius:14px; padding:14px 14px 12px; background:#fff; box-shadow:0 1px 2px rgba(31,39,51,.04); break-inside:avoid; }
+.trick-card.done { background:rgba(43,182,115,.07); border-color:rgba(43,182,115,.35); }
+.trick-card.mine { border-style:dashed; }
+.trick-method { display:inline-block; font-size:12px; font-weight:800; color:#fff; border-radius:999px; padding:2px 10px; margin-bottom:8px; }
+.trick-method.m-xie { background:#eb5757; }   /* 谐音 */
+.trick-method.m-chai { background:#2f80ed; }  /* 拆分 */
+.trick-method.m-dbi { background:#9b51e0; }   /* 对比 */
+.trick-method.m-lian { background:#f2994a; }  /* 联想 */
+.trick-method.m-story { background:#27ae60; } /* 故事 */
+.trick-method.m-zi { background:#7f8c9a; }    /* 自创/其他 */
+.trick-mine { position:absolute; top:12px; right:12px; font-size:11px; font-weight:800; color:#7f8c9a; background:#eef1f5; border-radius:6px; padding:1px 7px; }
+.trick-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+.trick-word { font-size:18px; font-weight:800; color:var(--ink); }
+.trick-zh { font-size:14px; color:var(--muted); }
+.trick-grade { font-size:11px; color:#7f8c9a; background:#f1f3f7; border-radius:6px; padding:1px 7px; }
+.trick-text { font-size:14px; line-height:1.65; color:var(--ink); margin:2px 0 10px; }
+.trick-foot { display:flex; gap:8px; }
+.trick-remember { border:1px solid var(--line); background:#fff; color:var(--ink); font-weight:700; font-size:13px; border-radius:10px; padding:6px 12px; cursor:pointer; }
+.trick-remember.on { background:var(--junior); color:#fff; border-color:transparent; }
+.trick-del { border:1px solid var(--line); background:#fff; color:#b23b3b; font-weight:700; font-size:13px; border-radius:10px; padding:6px 12px; cursor:pointer; }
+.trick-del:hover { background:rgba(178,59,59,.08); }
+.trick-add { margin-top:18px; border:1px solid var(--line); border-radius:14px; padding:14px; background:#fafbfd; }
+.trick-add-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+.trick-add-row .ta-in { flex:1 1 160px; }
+.ta-in, .ta-ta { border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:14px; font-family:inherit; color:var(--ink); background:#fff; }
+.ta-in:focus, .ta-ta:focus { outline:none; border-color:var(--primary); }
+.ta-ta { width:100%; min-height:74px; resize:vertical; margin-bottom:10px; }
+/* 单词练习闪卡背面的巧记提示 */
+.flash-trick { margin-top:12px; padding:9px 11px; background:rgba(242,184,5,.14); border:1px solid rgba(242,184,5,.4); border-radius:10px; font-size:14px; line-height:1.6; color:var(--ink); text-align:left; }
+.flash-trick::before { content:"💡 巧记 · "; font-weight:800; color:#b8860b; }
+

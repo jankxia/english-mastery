@@ -11,12 +11,15 @@
   var READ = window.READ_SENTENCES || [];
   var WORDS = window.WORD_BANK || {};
   var COURSES = window.COURSES || {};
+  var TRICKS = window.WORD_TRICKS || [];
 
   var LS_PROGRESS = "em_progress_v1";
   var LS_STREAK = "em_streak_v1";
   var LS_READ = "em_read_v1";
+  var LS_TRICKS_USER = "em_tricks_user_v1";
+  var LS_TRICKS_DONE = "em_tricks_done_v1";
 
-  var state = { grade: "all", dim: null, q: "", wordGrade: "primary" };
+  var state = { grade: "all", dim: null, q: "", wordGrade: "primary", trickGrade: "all", trickQ: "" };
 
   /* ---------- 存储 ---------- */
   function loadProgress() {
@@ -107,6 +110,7 @@
       '<span class="' + cls("words") + '" data-view="words">🔤 单词练习</span>' +
       '<span class="' + cls("textbook") + '" data-view="textbook">📖 课文跟读</span>' +
       '<span class="' + cls("courses") + '" data-view="courses">📺 同步课堂</span>' +
+      '<span class="' + cls("tricks") + '" data-view="tricks">💡 单词巧记</span>' +
       '</div>';
   }
   function bindTopTabs() {
@@ -117,6 +121,7 @@
         if (v === "words") location.hash = "#/words";
         else if (v === "textbook") location.hash = "#/textbook";
         else if (v === "courses") location.hash = "#/courses";
+        else if (v === "tricks") location.hash = "#/tricks";
         else location.hash = "#/";
       };
     });
@@ -612,9 +617,11 @@
     var words = unit.words || [];
 
     var flash = words.map(function (w, i) {
+      var tr = trickFor(w.en);
+      var trickHtml = tr ? '<div class="flash-trick">💡 ' + esc(tr.trick) + '</div>' : '';
       return '<div class="flip" data-i="' + i + '"><div class="inner">' +
         '<div class="face front">' + esc(w.en) + '<div class="rate"><button class="show-zh" data-i="' + i + '">看中文</button></div></div>' +
-        '<div class="face back">' + esc(w.zh) + "</div></div></div>";
+        '<div class="face back">' + esc(w.zh) + trickHtml + "</div></div></div>";
     }).join("");
 
     root.innerHTML =
@@ -1411,6 +1418,167 @@
     document.head.appendChild(s);
   }
 
+  /* ---------- 单词巧记（WORD_TRICKS 种子 + 用户自增 + 进度记忆） ---------- */
+  function loadUserTricks() {
+    try { return JSON.parse(localStorage.getItem(LS_TRICKS_USER)) || []; } catch (e) { return []; }
+  }
+  function saveUserTricks(arr) { localStorage.setItem(LS_TRICKS_USER, JSON.stringify(arr)); }
+  function loadTrickDone() {
+    try { return JSON.parse(localStorage.getItem(LS_TRICKS_DONE)) || {}; } catch (e) { return {}; }
+  }
+  function saveTrickDone(o) { localStorage.setItem(LS_TRICKS_DONE, JSON.stringify(o)); }
+  // 在任意单词练习（闪卡背面）里查该词的巧记
+  function trickFor(word) {
+    if (!word) return null;
+    var w = String(word).trim().toLowerCase();
+    for (var i = 0; i < TRICKS.length; i++) if (TRICKS[i].word === w) return TRICKS[i];
+    var u = loadUserTricks();
+    for (var j = 0; j < u.length; j++) if (u[j].word === w) return u[j];
+    return null;
+  }
+  function trickGradeLabel(g) {
+    if (g === "primary") return "小学";
+    if (g === "junior") return "初中";
+    if (g === "senior") return "高中";
+    return "通用";
+  }
+  function trickListFiltered() {
+    var seed = TRICKS || [];
+    var user = loadUserTricks();
+    var all = seed.concat(user.map(function (t) {
+      return { word: t.word, zh: t.zh, trick: t.trick, method: t.method || "自创", grade: t.grade || "all", mine: true };
+    }));
+    return all.filter(function (t) {
+      if (state.trickGrade !== "all" && t.grade !== "all" && t.grade !== state.trickGrade) return false;
+      if (state.trickQ) {
+        var q = state.trickQ.toLowerCase();
+        var hay = (t.word + " " + t.zh + " " + t.trick + " " + (t.method || "")).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+  }
+  function trickMethodCls(m) {
+    if (m === "谐音") return "m-xie";
+    if (m === "拆分") return "m-chai";
+    if (m === "对比") return "m-dbi";
+    if (m === "联想") return "m-lian";
+    if (m === "故事") return "m-story";
+    return "m-zi";
+  }
+  function trickCardsHtml(list) {
+    var done = loadTrickDone();
+    if (!list.length) return '<div class="empty">没有匹配的巧记，换个关键词试试 🐾</div>';
+    return list.map(function (t) {
+      var isDone = done[t.word] ? true : false;
+      return '<div class="trick-card ' + (isDone ? "done" : "") + (t.mine ? " mine" : "") + '" data-word="' + esc(t.word) + '">' +
+        '<span class="trick-method ' + trickMethodCls(t.method) + '">' + esc(t.method || "巧记") + '</span>' +
+        (t.mine ? '<span class="trick-mine">我的</span>' : '') +
+        '<div class="trick-head"><span class="trick-word">' + esc(t.word) + '</span>' +
+        '<span class="trick-zh">' + esc(t.zh) + '</span>' +
+        '<span class="trick-grade">' + trickGradeLabel(t.grade) + '</span></div>' +
+        '<p class="trick-text">' + esc(t.trick) + '</p>' +
+        '<div class="trick-foot">' +
+          '<button class="trick-remember ' + (isDone ? "on" : "") + '" data-word="' + esc(t.word) + '">' + (isDone ? "✅ 已记住" : "📌 我记住了") + '</button>' +
+          (t.mine ? '<button class="trick-del" data-word="' + esc(t.word) + '">🗑 删除</button>' : '') +
+        '</div>' +
+        '</div>';
+    }).join("");
+  }
+  function bindTrickCards(scope) {
+    Array.prototype.forEach.call(scope.querySelectorAll(".trick-remember"), function (b) {
+      b.onclick = function () {
+        var w = b.getAttribute("data-word");
+        var d = loadTrickDone();
+        var card = b.closest(".trick-card");
+        if (d[w]) { delete d[w]; b.textContent = "📌 我记住了"; b.classList.remove("on"); if (card) card.classList.remove("done"); }
+        else { d[w] = 1; b.textContent = "✅ 已记住"; b.classList.add("on"); if (card) card.classList.add("done"); }
+        saveTrickDone(d);
+      };
+    });
+    Array.prototype.forEach.call(scope.querySelectorAll(".trick-del"), function (b) {
+      b.onclick = function () {
+        var w = b.getAttribute("data-word");
+        var u = loadUserTricks();
+        u = u.filter(function (t) { return t.word !== w; });
+        saveUserTricks(u);
+        renderWordTricks();
+      };
+    });
+  }
+  function renderWordTricks(hashStr) {
+    var root = document.getElementById("app");
+    var h = hashStr || "#/tricks";
+    var parts = h.replace(/^#\/tricks\/?/, "").split("/").filter(Boolean);
+    if (parts[0]) state.trickGrade = parts[0];
+
+    var gtabs = '<div class="grade-tabs">' +
+      '<span class="grade-tab ' + (state.trickGrade === "all" ? "active" : "") + '" data-tgrade="all">全部</span>' +
+      '<span class="grade-tab ' + (state.trickGrade === "primary" ? "active" : "") + '" data-tgrade="primary">小学</span>' +
+      '<span class="grade-tab ' + (state.trickGrade === "junior" ? "active" : "") + '" data-tgrade="junior">初中</span>' +
+      '<span class="grade-tab ' + (state.trickGrade === "senior" ? "active" : "") + '" data-tgrade="senior">高中</span>' +
+      '</div>';
+
+    var list = trickListFiltered();
+    var gridHtml = trickCardsHtml(list);
+
+    root.innerHTML =
+      topTabsHtml("tricks") +
+      '<div class="words-intro">难词、易混词，用 <b>联想 / 谐音 / 拆分 / 对比 / 故事</b> 记，比死背快多了。点「📌 我记住了」记录进度；也能在下方「➕ 添加我的巧记」存自己的口诀（离线可用，永不丢失）。</div>' +
+      gtabs +
+      '<div class="filters"><input class="search" id="trickSearch" placeholder="🔍 搜单词 / 中文 / 巧记法…" value="' + esc(state.trickQ) + '"></div>' +
+      '<div class="grid trick-grid">' + gridHtml + '</div>' +
+      '<div class="trick-add">' +
+        '<div class="section-title"><span class="bar" style="background:var(--gold)"></span>➕ 添加我的巧记</div>' +
+        '<div class="trick-add-row">' +
+          '<input id="taWord" class="ta-in" placeholder="单词（英文）" autocomplete="off">' +
+          '<input id="taZh" class="ta-in" placeholder="中文释义" autocomplete="off">' +
+        '</div>' +
+        '<textarea id="taTrick" class="ta-ta" placeholder="写下你的巧记法（口语化、孩子能看懂最好）"></textarea>' +
+        '<div class="trick-add-row">' +
+          '<select id="taMethod" class="ta-in">' +
+            '<option value="自创">自创</option><option value="谐音">谐音</option><option value="拆分">拆分</option><option value="对比">对比</option><option value="联想">联想</option><option value="故事">故事</option>' +
+          '</select>' +
+          '<button class="check-all" id="taAdd">保存巧记</button>' +
+        '</div>' +
+        '<div class="read-fb" id="taFb"></div>' +
+      '</div>';
+
+    bindTopTabs();
+
+    Array.prototype.forEach.call(root.querySelectorAll(".grade-tab[data-tgrade]"), function (t) {
+      t.onclick = function () { state.trickGrade = t.getAttribute("data-tgrade"); location.hash = "#/tricks/" + state.trickGrade; };
+    });
+
+    var grid = root.querySelector(".trick-grid");
+    if (grid) bindTrickCards(grid);
+
+    var search = document.getElementById("trickSearch");
+    if (search) search.oninput = function () {
+      state.trickQ = search.value;
+      var g = root.querySelector(".trick-grid");
+      if (g) { g.innerHTML = trickCardsHtml(trickListFiltered()); bindTrickCards(g); }
+    };
+
+    var addBtn = document.getElementById("taAdd");
+    if (addBtn) addBtn.onclick = function () {
+      var wEl = document.getElementById("taWord"), zEl = document.getElementById("taZh"),
+          tEl = document.getElementById("taTrick"), mEl = document.getElementById("taMethod"),
+          fb = document.getElementById("taFb");
+      var w = (wEl.value || "").trim().toLowerCase();
+      var zh = (zEl.value || "").trim();
+      var tr = (tEl.value || "").trim();
+      if (!w || !tr) { if (fb) { fb.textContent = "⚠️ 单词和巧记法都要填"; fb.className = "read-fb low"; } return; }
+      var u = loadUserTricks();
+      var found = false;
+      for (var i = 0; i < u.length; i++) { if (u[i].word === w) { u[i].zh = zh; u[i].trick = tr; u[i].method = mEl.value; found = true; break; } }
+      if (!found) u.push({ word: w, zh: zh, trick: tr, method: mEl.value, grade: "all" });
+      saveUserTricks(u);
+      if (fb) { fb.textContent = "✅ 已保存，可在上方列表中看到（带「我的」标记）"; fb.className = "read-fb ok"; }
+      renderWordTricks();
+    };
+  }
+
   /* ---------- 路由 ---------- */
   function route() {
     var h = location.hash || "#/";
@@ -1422,6 +1590,8 @@
       renderTextbook(h);
     } else if (h.indexOf("#/courses") === 0) {
       renderCourses(h);
+    } else if (h.indexOf("#/tricks") === 0) {
+      renderWordTricks(h);
     } else {
       renderHome();
     }
