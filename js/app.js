@@ -12,16 +12,20 @@
   var WORDS = window.WORD_BANK || {};
   var COURSES = window.COURSES || {};
   var TRICKS = window.WORD_TRICKS || [];
+  var CURRIC = window.CURRICULUM || { grades: [], basics: [] };
 
   var LS_PROGRESS = "em_progress_v1";
   var LS_STREAK = "em_streak_v1";
   var LS_READ = "em_read_v1";
   var LS_TRICKS_USER = "em_tricks_user_v1";
   var LS_TRICKS_DONE = "em_tricks_done_v1";
+  var LS_UNIT_PROGRESS = "em_unit_prog_v1";
 
-  var state = { grade: "all", dim: null, q: "", wordGrade: "primary", trickGrade: "all", trickQ: "" };
+  var state = { grade: "all", dim: null, q: "", wordGrade: "primary", trickGrade: "all", trickQ: "", curricGrade: "3" };
   var quizState = null;      // 随机抽考小游戏的当前局状态
   var pendingTrickImg = "";  // 添加「我的巧记」时暂存的图片 dataURL（入库后清空）
+  var quizItems = null;       // 单元巧记抽考的范围（null = 全局抽考）
+  var quizHome = "#/tricks";  // 抽考结束 / 退出后返回的页面
 
   /* ---------- 存储 ---------- */
   function loadProgress() {
@@ -108,9 +112,10 @@
   function topTabsHtml(activeView) {
     function cls(v) { return "top-tab" + (activeView === v ? " active" : ""); }
     return '<div class="top-tabs">' +
-      '<span class="' + cls("methods") + '" data-view="methods">📚 学习技巧</span>' +
+      '<span class="' + cls("curriculum") + '" data-view="curriculum">📚 课程学习</span>' +
+      '<span class="' + cls("methods") + '" data-view="methods">📖 学习技巧</span>' +
       '<span class="' + cls("words") + '" data-view="words">🔤 单词练习</span>' +
-      '<span class="' + cls("textbook") + '" data-view="textbook">📖 课文跟读</span>' +
+      '<span class="' + cls("textbook") + '" data-view="textbook">📝 课文跟读</span>' +
       '<span class="' + cls("courses") + '" data-view="courses">📺 同步课堂</span>' +
       '<span class="' + cls("tricks") + '" data-view="tricks">💡 单词巧记</span>' +
       '</div>';
@@ -123,6 +128,7 @@
         if (v === "words") location.hash = "#/words";
         else if (v === "textbook") location.hash = "#/textbook";
         else if (v === "courses") location.hash = "#/courses";
+        else if (v === "curriculum") location.hash = "#/curriculum";
         else if (v === "tricks") location.hash = "#/tricks";
         else location.hash = "#/";
       };
@@ -610,7 +616,7 @@
       c.onclick = function () { location.hash = "#/words/" + c.getAttribute("data-grade") + "/" + c.getAttribute("data-unit"); };
     });
   }
-  function renderWordUnit(grade, unitId) {
+  function renderWordUnit(grade, unitId, startMode) {
     var root = document.getElementById("app");
     var g = WORDS[grade] || WORDS.primary;
     var unit = null;
@@ -632,7 +638,9 @@
       var trickHtml = tr ? '<div class="flash-trick">💡 ' + esc(tr.trick) + '</div>' : '';
       return '<div class="flip" data-i="' + i + '"><div class="inner">' +
         '<div class="face front">' + esc(w.en) + '<div class="rate"><button class="show-zh" data-i="' + i + '">看中文</button></div></div>' +
-        '<div class="face back">' + esc(w.zh) + trickHtml + "</div></div></div>";
+        '<div class="face back">' + esc(w.zh) + trickHtml +
+          '<div class="rate w-rate"><button class="w-known" data-en="' + esc(w.en) + '">✓ 我会了</button><button class="w-unknown" data-en="' + esc(w.en) + '">✗ 还不会</button></div>' +
+        "</div></div></div>";
     }).join("");
 
     root.innerHTML =
@@ -685,6 +693,10 @@
     bindTopTabs();
     bindWordUnit(grade, unit);
     bindTrickCards(root);
+    if (startMode) {
+      var sm = document.querySelector('.mode-tab[data-mode="' + startMode + '"]');
+      if (sm) sm.click();
+    }
   }
   function bindWordUnit(grade, unit) {
     var words = unit.words || [];
@@ -715,6 +727,24 @@
       };
       Array.prototype.forEach.call(f.querySelectorAll(".show-zh"), function (b) {
         b.onclick = function (e) { e.stopPropagation(); f.classList.add("flipped"); };
+      });
+      Array.prototype.forEach.call(f.querySelectorAll(".w-known"), function (b) {
+        b.onclick = function (e) {
+          e.stopPropagation();
+          recordUnitWord(unit.id, b.getAttribute("data-en"), true);
+          f.classList.add("flipped");
+          b.classList.add("on");
+          var ub = f.querySelector(".w-unknown"); if (ub) ub.classList.remove("on");
+        };
+      });
+      Array.prototype.forEach.call(f.querySelectorAll(".w-unknown"), function (b) {
+        b.onclick = function (e) {
+          e.stopPropagation();
+          recordUnitWord(unit.id, b.getAttribute("data-en"), false);
+          f.classList.add("flipped");
+          b.classList.add("on");
+          var kb = f.querySelector(".w-known"); if (kb) kb.classList.remove("on");
+        };
       });
     });
 
@@ -1600,7 +1630,7 @@
     bindTopTabs();
 
     var qb = document.getElementById("trickQuizBtn");
-    if (qb) qb.onclick = function () { location.hash = "#/tricks/quiz"; };
+    if (qb) qb.onclick = function () { quizItems = null; quizHome = "#/tricks"; location.hash = "#/tricks/quiz"; };
 
     var imgInput = document.getElementById("taImg");
     var imgPrev = document.getElementById("taImgPrev");
@@ -1654,7 +1684,7 @@
     var root = document.getElementById("app");
     // 进局：没局 或 上一局已答完 → 用当前筛选重建一副打乱的牌
     if (!quizState || quizState.idx >= quizState.items.length) {
-      var deck = trickListFiltered();
+      var deck = quizItems ? quizItems.slice() : trickListFiltered();
       if (!deck.length) {
         root.innerHTML = topTabsHtml("tricks") + '<div class="empty">没有可抽考的巧记，换个筛选条件或先添加巧记 🐾</div>';
         bindTopTabs();
@@ -1696,7 +1726,7 @@
     var skipBtn = document.getElementById("quizSkip");
     if (skipBtn) skipBtn.onclick = function () { q.idx++; advanceQuiz(); };
     var exit = document.getElementById("quizExit");
-    if (exit) exit.onclick = function () { quizState = null; location.hash = "#/tricks"; };
+    if (exit) exit.onclick = function () { quizState = null; location.hash = quizHome; };
   }
   function advanceQuiz() {
     var q = quizState;
@@ -1709,16 +1739,246 @@
           '<h2>抽考完成！</h2>' +
           '<p>共 ' + q.items.length + ' 张，你记住了 <b class="ok">' + q.known + '</b> 张（正确率 ' + Math.round(q.known / q.items.length * 100) + '%）。</p>' +
           '<div class="quiz-actions"><button class="check-all" id="quizAgain">🔁 再来一局</button>' +
-          '<button class="back" id="quizBack">返回列表</button></div>' +
+          '<button class="back" id="quizBack">返回学习中心</button></div>' +
         '</div>';
       bindTopTabs();
       var again = document.getElementById("quizAgain");
       if (again) again.onclick = function () { quizState = null; location.hash = "#/tricks/quiz"; };
       var back = document.getElementById("quizBack");
-      if (back) back.onclick = function () { quizState = null; location.hash = "#/tricks"; };
+      if (back) back.onclick = function () { quizState = null; location.hash = quizHome; };
     } else {
       renderTrickQuiz();
     }
+  }
+
+  /* ---------- 课程主线：以人教版为线，串起所有学习方法 + 进度巩固 ---------- */
+  function parseUnitId(id) {
+    var m = /^p-sh(\d)([ab])-u(\d+)$/.exec(id || "");
+    return m ? { g: m[1], v: m[2], n: parseInt(m[3], 10) } : null;
+  }
+  function unitWords(unitId) {
+    var g = WORDS.primary || {};
+    var u = null;
+    (g.units || []).forEach(function (x) { if (x.id === unitId) u = x; });
+    return u ? (u.words || []) : [];
+  }
+  function unitWordCount(unitId) { return unitWords(unitId).length; }
+  function findTextbookUnit(g, v, n) {
+    var TB = window.TEXTBOOK || [];
+    var gk = "pep" + g + v;
+    for (var i = 0; i < TB.length; i++) {
+      if (TB[i].key !== gk) continue;
+      var uid = "pep" + g + v + "-u" + n;
+      var unit = null;
+      (TB[i].units || []).forEach(function (u) { if (u.id === uid) unit = u; });
+      if (unit) return { gradeKey: gk, unitId: uid, unit: unit };
+    }
+    return null;
+  }
+  function courseGradeExists(g) {
+    var C = window.COURSES || {};
+    if (!C.grades) return false;
+    for (var i = 0; i < C.grades.length; i++) if (C.grades[i].key === "g" + g) return true;
+    return false;
+  }
+  function loadUnitProgress() {
+    try { return JSON.parse(localStorage.getItem(LS_UNIT_PROGRESS)) || {}; } catch (e) { return {}; }
+  }
+  function saveUnitProgress(o) { localStorage.setItem(LS_UNIT_PROGRESS, JSON.stringify(o)); }
+  function getUnitProg(unitId) {
+    var all = loadUnitProgress();
+    if (!all[unitId]) all[unitId] = { visited: {}, wordsKnown: [] };
+    return all[unitId];
+  }
+  function markUnitMethod(unitId, key) {
+    var all = loadUnitProgress();
+    if (!all[unitId]) all[unitId] = { visited: {}, wordsKnown: [] };
+    if (!all[unitId].visited) all[unitId].visited = {};
+    all[unitId].visited[key] = 1;
+    saveUnitProgress(all);
+  }
+  function recordUnitWord(unitId, en, known) {
+    var all = loadUnitProgress();
+    if (!all[unitId]) all[unitId] = { visited: {}, wordsKnown: [] };
+    var wk = all[unitId].wordsKnown || [];
+    var low = String(en).trim().toLowerCase();
+    var idx = wk.indexOf(low);
+    if (known) { if (idx < 0) wk.push(low); }
+    else { if (idx >= 0) wk.splice(idx, 1); }
+    all[unitId].wordsKnown = wk;
+    saveUnitProgress(all);
+  }
+  function unitProgress(unitId, words) {
+    var prog = getUnitProg(unitId);
+    var wordsTotal = words.length;
+    var wordsKnown = (prog.wordsKnown || []).length;
+    var ut = tricksForWords(words.map(function (w) { return w.en; }));
+    var tricksTotal = ut.length;
+    var done = loadTrickDone();
+    var tricksKnown = 0;
+    ut.forEach(function (t) { if (done[t.word]) tricksKnown++; });
+    var p = parseUnitId(unitId);
+    var tbTotal = 0, tbDone = 0;
+    if (p) {
+      var tb = findTextbookUnit(p.g, p.v, p.n);
+      if (tb) {
+        tbTotal = tb.unit.sentences ? tb.unit.sentences.length : 0;
+        var rd = loadRead();
+        tbDone = (rd["tb:" + tb.gradeKey + ":" + tb.unitId] || []).length;
+      }
+    }
+    var methodsVisited = 0;
+    ["flash", "spell", "read", "phonics", "tricks", "textbook", "courses"].forEach(function (k) { if (prog.visited && prog.visited[k]) methodsVisited++; });
+    var wordPart = wordsTotal ? wordsKnown / wordsTotal : 1;
+    var trickPart = tricksTotal ? tricksKnown / tricksTotal : 1;
+    var tbPart = tbTotal ? Math.min(1, tbDone / tbTotal) : 1;
+    var methodPart = methodsVisited / 7;
+    var overall = Math.round((wordPart * 0.4 + trickPart * 0.3 + tbPart * 0.1 + methodPart * 0.2) * 100);
+    return { overall: overall, wordsTotal: wordsTotal, wordsKnown: wordsKnown, tricksTotal: tricksTotal, tricksKnown: tricksKnown, tbTotal: tbTotal, tbDone: tbDone, methodsVisited: methodsVisited, visited: prog.visited || {} };
+  }
+  function renderCurriculum(hashStr) {
+    var root = document.getElementById("app");
+    var h = hashStr || "#/curriculum";
+    var parts = h.replace(/^#\/curriculum\/?/, "").split("/").filter(Boolean);
+    if (parts[2]) { renderCourseUnit(parts[0], parts[1], parts[2]); return; }
+    if (parts[0]) state.curricGrade = parts[0];
+
+    var chips = '<div class="grade-tabs">';
+    CURRIC.grades.forEach(function (g) {
+      chips += '<span class="grade-tab ' + (state.curricGrade === g.grade ? "active" : "") + '" data-grade="' + g.grade + '">' + esc(g.label) + '</span>';
+    });
+    chips += '<span class="grade-tab ' + (state.curricGrade === "basics" ? "active" : "") + '" data-grade="basics">基础与主题</span>';
+    chips += "</div>";
+
+    var body = "";
+    if (state.curricGrade === "basics") {
+      var bcards = CURRIC.basics.map(function (u) {
+        return '<div class="card unit-card" data-grade="primary" data-unit="' + u.unitId + '">' +
+          '<div class="top"><span class="icon">⭐</span></div><h3>' + esc(u.title) + '</h3>' +
+          '<p class="summary">基础词 · 点开练</p></div>';
+      }).join("");
+      body = '<div class="grid">' + bcards + '</div>';
+    } else {
+      var gradeObj = null;
+      CURRIC.grades.forEach(function (g) { if (g.grade === state.curricGrade) gradeObj = g; });
+      if (gradeObj) {
+        body = ["a", "b"].map(function (v) {
+          var vol = gradeObj.volumes[v];
+          if (!vol || !vol.units.length) return "";
+          var cards = vol.units.map(function (u) {
+            var wcount = unitWordCount(u.unitId);
+            var tcount = tricksForWords(unitWords(u.unitId).map(function (w) { return w.en; })).length;
+            return '<div class="card unit-card" data-grade="' + gradeObj.grade + '" data-vol="' + v + '" data-unit="' + u.unitId + '">' +
+              '<div class="top"><span class="icon">📘</span>' +
+              '<span class="badge-grade" style="background:' + gradeColor("primary") + '">' + vol.label + '</span></div>' +
+              "<h3>" + esc(u.title) + "</h3>" +
+              '<p class="summary">' + wcount + " 词" + (tcount ? " · 💡" + tcount + " 巧记" : "") + '</p>' +
+              "</div>";
+          }).join("");
+          return '<div class="vol-section"><div class="vol-title">' + vol.label + '</div><div class="grid">' + cards + '</div></div>';
+        }).join("");
+      }
+    }
+
+    root.innerHTML = topTabsHtml("curriculum") + chips +
+      '<div class="words-intro">按 <b>人教版 PEP（三年级起点）</b> 课程主线：选年级 → 分册 → 单元。每个单元是一张「学习中心」，把 <b>单词练习 / 拼读拆解 / 课文跟读 / 单词巧记 / 同步课堂</b> 串起来，边学边巩固进度。</div>' +
+      body;
+    bindTopTabs();
+    Array.prototype.forEach.call(root.querySelectorAll(".grade-tab"), function (t) {
+      t.onclick = function () { state.curricGrade = t.getAttribute("data-grade"); location.hash = "#/curriculum/" + state.curricGrade; };
+    });
+    Array.prototype.forEach.call(root.querySelectorAll(".unit-card"), function (c) {
+      c.onclick = function () {
+        var g = c.getAttribute("data-grade"), v = c.getAttribute("data-vol"), u = c.getAttribute("data-unit");
+        if (g === "basics" || !v) location.hash = "#/words/primary/" + u;
+        else location.hash = "#/curriculum/" + g + "/" + v + "/" + u;
+      };
+    });
+  }
+  function renderCourseUnit(grade, vol, unitId) {
+    var root = document.getElementById("app");
+    var words = unitWords(unitId);
+    if (!words.length) { root.innerHTML = topTabsHtml("curriculum") + '<div class="empty">找不到该单元 😢</div>'; bindTopTabs(); return; }
+    var unitMeta = null;
+    CURRIC.grades.forEach(function (g) {
+      if (g.grade !== grade) return;
+      var vv = g.volumes[vol];
+      if (!vv) return;
+      vv.units.forEach(function (u) { if (u.unitId === unitId) unitMeta = u; });
+    });
+    var title = (unitMeta && unitMeta.title) || unitId;
+    var p = parseUnitId(unitId);
+    var tb = p ? findTextbookUnit(p.g, p.v, p.n) : null;
+    var hasCourse = p ? courseGradeExists(p.g) : false;
+    var prog = unitProgress(unitId, words);
+    var volLabel = (vol === "a") ? "上册" : "下册";
+
+    var methods = [
+      { key: "flash", icon: "🃏", label: "单词闪卡", desc: "点卡翻面看中文", hash: "#/words/primary/" + unitId + "/flash" },
+      { key: "spell", icon: "✍️", label: "拼写自测", desc: "看中文写英文", hash: "#/words/primary/" + unitId + "/spell" },
+      { key: "read", icon: "🎤", label: "单词跟读", desc: "听+跟读打分", hash: "#/words/primary/" + unitId + "/read" },
+      { key: "phonics", icon: "🔤", label: "拼读拆解", desc: "音节·音标·拼写", hash: "#/words/primary/" + unitId + "/phonics" },
+      { key: "tricks", icon: "💡", label: "本单元巧记", desc: "易错词巧记法", hash: "#/words/primary/" + unitId + "/tricks" },
+      { key: "textbook", icon: "📖", label: "课文跟读", desc: tb ? "听示范+跟我读" : "暂未配套", hash: tb ? ("#/textbook/" + tb.gradeKey + "/" + tb.unitId) : "#/textbook", disabled: !tb },
+      { key: "courses", icon: "📺", label: "同步课堂", desc: hasCourse ? "看国家平台课" : "课程待抓取", hash: hasCourse ? ("#/courses/g" + grade + "/" + vol) : "#/courses", disabled: !hasCourse }
+    ];
+    var mhtml = methods.map(function (m) {
+      var done = prog.visited[m.key] ? "done" : "";
+      return '<a class="method-card ' + done + (m.disabled ? " disabled" : "") + '" data-key="' + m.key + '" href="' + m.hash + '">' +
+        '<span class="m-ico">' + m.icon + '</span>' +
+        '<span class="m-label">' + m.label + (prog.visited[m.key] ? ' <span class="m-check">✓</span>' : '') + '</span>' +
+        '<span class="m-desc">' + m.desc + '</span>' +
+        '</a>';
+    }).join("");
+
+    var ut = tricksForWords(words.map(function (w) { return w.en; }));
+    var tricksHtml = ut.length
+      ? ('<div class="section-title"><span class="bar" style="background:var(--gold)"></span>💡 本单元巧记（' + ut.length + ' 条 · 点「📌 我记住了」记进度）</div>' +
+         '<div class="grid trick-grid">' + trickCardsHtml(ut) + '</div>')
+      : '<div class="empty">本单元暂无种子巧记（可在「💡 单词巧记」里自己加，按本单元词填写即可）</div>';
+
+    root.innerHTML = topTabsHtml("curriculum") +
+      '<div class="detail words-detail">' +
+      '<button class="back" id="back">← 返回单元列表</button>' +
+      '<div class="head"><span class="icon">📘</span><div><h2>' + esc(title) + '</h2>' +
+      '<p class="sub">' + grade + '年级 · ' + volLabel + ' · 共 ' + words.length + ' 词</p></div></div>' +
+
+      '<div class="progress-hero">' +
+        '<div class="ph-ring" style="--p:' + prog.overall + '"><span>' + prog.overall + '%</span></div>' +
+        '<div class="ph-stats">' +
+          '<div class="ph-stat"><b>' + prog.wordsKnown + '/' + prog.wordsTotal + '</b><span>词汇掌握</span></div>' +
+          '<div class="ph-stat"><b>' + prog.tricksKnown + '/' + prog.tricksTotal + '</b><span>巧记记住</span></div>' +
+          '<div class="ph-stat"><b>' + prog.tbDone + '/' + prog.tbTotal + '</b><span>课文跟读</span></div>' +
+          '<div class="ph-stat"><b>' + prog.methodsVisited + '/7</b><span>方法用过</span></div>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section-title"><span class="bar"></span>🧭 本单元学习方法（点开即用，进度自动记录）</div>' +
+      '<div class="method-grid">' + mhtml + '</div>' +
+
+      '<div class="section-title"><span class="bar" style="background:var(--gold)"></span>💡 本单元巧记</div>' +
+      tricksHtml +
+
+      '<div class="trick-quiz-bar"><button class="check-all" id="unitQuizBtn">🎲 本单元巧记抽考（' + ut.length + ' 张）</button>' +
+        '<span class="trick-quiz-tip">只抽本单元有巧记的词，翻面看巧记打分</span></div>' +
+      '</div>';
+
+    var back = document.getElementById("back");
+    if (back) back.onclick = function () { location.hash = "#/curriculum/" + grade + "/" + vol; };
+    bindTopTabs();
+    Array.prototype.forEach.call(root.querySelectorAll(".method-card"), function (c) {
+      c.onclick = function () { markUnitMethod(unitId, c.getAttribute("data-key")); };
+    });
+    var tg = root.querySelector(".trick-grid");
+    if (tg) bindTrickCards(tg);
+    var uq = document.getElementById("unitQuizBtn");
+    if (uq) uq.onclick = function () {
+      var items = tricksForWords(words.map(function (w) { return w.en; }));
+      if (!items.length) { if (window.alert) alert("本单元还没有巧记可抽考"); return; }
+      quizItems = items;
+      quizHome = "#/curriculum/" + grade + "/" + vol + "/" + unitId;
+      location.hash = "#/tricks/quiz";
+    };
   }
 
   /* ---------- 路由 ---------- */
@@ -1732,6 +1992,8 @@
       renderTextbook(h);
     } else if (h.indexOf("#/courses") === 0) {
       renderCourses(h);
+    } else if (h.indexOf("#/curriculum") === 0) {
+      renderCurriculum(h);
     } else if (h.indexOf("#/tricks") === 0) {
       renderWordTricks(h);
     } else {
@@ -1744,7 +2006,7 @@
     var parts = h.replace(/^#\/words\/?/, "").split("/").filter(Boolean);
     var grade = parts[0] || state.wordGrade || "primary";
     state.wordGrade = grade;
-    if (parts[1]) renderWordUnit(grade, parts[1]);
+    if (parts[1]) renderWordUnit(grade, parts[1], parts[2]);
     else renderWordsHome(grade);
   }
 
