@@ -116,7 +116,6 @@
       '<span class="' + cls("methods") + '" data-view="methods">📖 学习技巧</span>' +
       '<span class="' + cls("words") + '" data-view="words">🔤 单词练习</span>' +
       '<span class="' + cls("textbook") + '" data-view="textbook">📝 课文跟读</span>' +
-      '<span class="' + cls("courses") + '" data-view="courses">📺 同步课堂</span>' +
       '<span class="' + cls("tricks") + '" data-view="tricks">💡 单词巧记</span>' +
       '</div>';
   }
@@ -127,7 +126,6 @@
         var v = t.getAttribute("data-view");
         if (v === "words") location.hash = "#/words";
         else if (v === "textbook") location.hash = "#/textbook";
-        else if (v === "courses") location.hash = "#/courses";
         else if (v === "curriculum") location.hash = "#/curriculum";
         else if (v === "tricks") location.hash = "#/tricks";
         else location.hash = "#/";
