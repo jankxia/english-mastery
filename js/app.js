@@ -1781,6 +1781,33 @@
     for (var i = 0; i < C.grades.length; i++) if (C.grades[i].key === "g" + g) return true;
     return false;
   }
+  // 同步课堂改为「直链国家平台」：优先取 COURSES 里该单元课时的 platform 深链，
+  // 退而求其次用 materialId 拼 classActivity 页，最后兜底到平台首页。
+  function coursePlatformFor(grade, vol, unitId) {
+    var C = window.COURSES || {};
+    if (C.grades && C.grades.length) {
+      var g = null;
+      for (var i = 0; i < C.grades.length; i++) if (C.grades[i].key === "g" + grade) g = C.grades[i];
+      if (g) {
+        var v = null;
+        for (var j = 0; j < (g.volumes || []).length; j++) if (g.volumes[j].key === vol) v = g.volumes[j];
+        if (v) {
+          var idx = -1;
+          if (CURRIC && CURRIC.grades) {
+            CURRIC.grades.forEach(function (gg) {
+              if (gg.grade !== grade) return;
+              var vv = gg.volumes[vol]; if (!vv) return;
+              vv.units.forEach(function (u, k) { if (u.unitId === unitId) idx = k; });
+            });
+          }
+          var u = (idx >= 0 && v.units[idx]) ? v.units[idx] : v.units[0];
+          if (u && u.lessons && u.lessons[0] && u.lessons[0].platform) return u.lessons[0].platform;
+          if (v.materialId) return "https://basic.smartedu.cn/syncClassroom/classActivity?activityId=" + v.materialId;
+        }
+      }
+    }
+    return "https://basic.smartedu.cn/syncClassroom";
+  }
   function loadUnitProgress() {
     try { return JSON.parse(localStorage.getItem(LS_UNIT_PROGRESS)) || {}; } catch (e) { return {}; }
   }
@@ -1909,7 +1936,6 @@
     var title = (unitMeta && unitMeta.title) || unitId;
     var p = parseUnitId(unitId);
     var tb = p ? findTextbookUnit(p.g, p.v, p.n) : null;
-    var hasCourse = p ? courseGradeExists(p.g) : false;
     var prog = unitProgress(unitId, words);
     var volLabel = (vol === "a") ? "上册" : "下册";
 
@@ -1920,11 +1946,14 @@
       { key: "phonics", icon: "🔤", label: "拼读拆解", desc: "音节·音标·拼写", hash: "#/words/primary/" + unitId + "/phonics" },
       { key: "tricks", icon: "💡", label: "本单元巧记", desc: "易错词巧记法", hash: "#/words/primary/" + unitId + "/tricks" },
       { key: "textbook", icon: "📖", label: "课文跟读", desc: tb ? "听示范+跟我读" : "暂未配套", hash: tb ? ("#/textbook/" + tb.gradeKey + "/" + tb.unitId) : "#/textbook", disabled: !tb },
-      { key: "courses", icon: "📺", label: "同步课堂", desc: hasCourse ? "看国家平台课" : "课程待抓取", hash: hasCourse ? ("#/courses/g" + grade + "/" + vol) : "#/courses", disabled: !hasCourse }
+      { key: "courses", icon: "📺", label: "同步课堂", desc: "去国家平台看课（新标签页）→", href: coursePlatformFor(grade, vol, unitId), target: "_blank" }
     ];
     var mhtml = methods.map(function (m) {
       var done = prog.visited[m.key] ? "done" : "";
-      return '<a class="method-card ' + done + (m.disabled ? " disabled" : "") + '" data-key="' + m.key + '" href="' + m.hash + '">' +
+      var dis = m.disabled ? " disabled" : "";
+      var href = m.href || m.hash || "#";
+      var ext = m.target ? (' target="' + m.target + '" rel="noopener"') : '';
+      return '<a class="method-card ' + done + dis + '" data-key="' + m.key + '" href="' + esc(href) + '"' + ext + '>' +
         '<span class="m-ico">' + m.icon + '</span>' +
         '<span class="m-label">' + m.label + (prog.visited[m.key] ? ' <span class="m-check">✓</span>' : '') + '</span>' +
         '<span class="m-desc">' + m.desc + '</span>' +
