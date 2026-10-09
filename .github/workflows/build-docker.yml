@@ -5,7 +5,6 @@ on:
   pull_request:
     branches: [ main ]
 
-# ========== 重点：权限放在最顶层 ==========
 permissions:
   contents: read
   packages: write
@@ -20,14 +19,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: jankxia
+          username: ${{ shturl.cc/iN }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push image
         uses: docker/build-push-action@v6
         with:
           context: .
