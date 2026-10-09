@@ -17,11 +17,31 @@
       background:rgba(255,255,255,0.88);
       min-height:100vh;
     }
+    .page-footer{
+      margin-top: 60px;
+      padding:20px;
+      border-top:1px solid #ccc;
+      font-size:12px;
+      color:#666;
+    }
   </style>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <div class="main-wrap">
+  <!-- 由Flask注入登录信息，传给JS -->
+  <script>
+    window.LOGIN_USER = {
+      username: "{{ get_current_user().username if get_current_user() else '' }}",
+      isAdmin: {{ "true" if (get_current_user() and get_current_user().role == 'admin') else "false" }}
+    }
+    // 后端路由地址
+    window.ROUTES = {
+      logout: "/logout",
+      admin: "/admin",
+      changePwd: "/change_pwd"
+    }
+  </script>
   <!-- 顶栏与内容由 app.js 注入 -->
   <script src="js/data.js"></script>
   <script src="js/sentences.js"></script>
@@ -32,6 +52,13 @@
   <script src="js/wordtricks.js"></script>
   <script src="js/curriculum.js"></script>
   <script src="js/app.js"></script>
+
+  <!-- 页脚固定在页面底部 -->
+  <div class="page-footer">
+    <p>免责声明：本系统仅供个人学习交流使用，题库内容与解析仅作参考，不构成正式教学指导。</p>
+    <p>可选登录地址： <a href="https://en.717611.xyz/">https://en.717611.xyz/</a> · <a href="https://en.xhx.xx.kg/">https://en.xhx.xx.kg/</a> · <a href="https://en.xnas.us.kg/">https://en.xnas.us.kg/</a> · <a href="shturl.cc/70Yz5fzzUVyV">shturl.cc/70Yz5fzzUVyV</a> · <a href="shturl.cc/5A3skL1PcdE">shturl.cc/5A3skL1PcdE</a></p>
+    <p>联系邮箱： <a href="mailto:jankxia@163.com">jankxia@163.com</a></p>
+  </div>
 </div>
 </body>
 </html>
