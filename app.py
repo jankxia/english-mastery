@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, redirect, url_for, session, flash
+from flask import Flask, render_template_string, request, redirect, url_for, session, flash, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 import os
@@ -243,6 +243,12 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+# ========== ✅新增：托管根目录静态文件，解决 styles.css / js/*.js 404 ==========
+# 必须放在所有业务路由最后！
+@app.route('/<path:filename>')
+def serve_root_static(filename):
+    return send_from_directory(os.path.dirname(__file__), filename)
+
 # ========== 初始化数据库，创建管理员账号 admin / 123456 ==========
 with app.app_context():
     db.create_all()
@@ -256,4 +262,4 @@ with app.app_context():
     db.session.commit()
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=3007)
+    app.run(debug=False, host="0.0.0.0", port=3007)
