@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, send_file
+from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 import os
@@ -10,6 +10,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 # ========== 数据库模型 ==========
 class User(db.Model):
@@ -53,20 +54,29 @@ FOOTER_HTML = """
 </div>
 """
 
-# ========== 前端页面路由【重点修改】 ==========
+# ========== 前端页面路由【修复：用send_from_directory，不用send_file】 ==========
 @app.route('/')
 def index_page():
     if not is_login():
         return redirect(url_for('login'))
-    # send_file：直接返回文件，不经过Jinja模板引擎，不会解析{{ }}
-    return send_file("index.html")
+    return send_from_directory(BASE_DIR, "index.html")
 
 @app.route('/standalone')
 def standalone_page():
     if not is_login():
         return redirect(url_for('login'))
-    # 完全原样读取english-mastery-standalone.html，不做任何处理
-    return send_file("english-mastery-standalone.html")
+    return send_from_directory(BASE_DIR, "english-mastery-standalone.html")
+
+# 新增API接口，前端JS异步获取用户信息，替换原来html内jinja注入
+@app.route("/api/userinfo")
+def api_userinfo():
+    u = get_current_user()
+    if not u:
+        return jsonify({"username":"", "isAdmin":False})
+    return jsonify({
+        "username": u.username,
+        "isAdmin": u.role == "admin"
+    })
 
 # ========== 登录注册相关路由 ==========
 @app.route('/login', methods=['GET','POST'])
@@ -137,7 +147,7 @@ body {
     margin:0;
 }
 .box{
-    background:rgba(255,255,255,0.85);
+    background:rgba(255,255,0.85);
     max-width:500px;
     margin:80px auto;
     padding:20px;
@@ -180,7 +190,7 @@ body {
     margin:0;
 }
 .box{
-    background:rgba(255,255,255,0.85);
+    background:rgba(255,255,0.85);
     max-width:500px;
     margin:80px auto;
     padding:20px;
@@ -324,7 +334,7 @@ def logout():
 # 必须放在所有业务路由最后！
 @app.route('/<path:filename>')
 def serve_root_static(filename):
-    return send_from_directory(os.path.dirname(__file__), filename)
+    return send_from_directory(BASE_DIR, filename)
 
 # ========== 初始化数据库，创建管理员账号 admin / 123456 ==========
 with app.app_context():
