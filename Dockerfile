@@ -1,12 +1,9 @@
 FROM python:3.11-slim
-
 WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
+COPY app.py .
+COPY bg.webp .
+COPY index.html .
+COPY english-mastery-standalone.html .
+RUN pip install flask flask-sqlalchemy flask-bcrypt
 EXPOSE 3007
-
-CMD ["python", "app.py"]
+CMD ["python","app.py"]
