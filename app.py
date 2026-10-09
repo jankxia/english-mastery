@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, jsonify
+from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, jsonify, render_template_string
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 import os
@@ -54,7 +54,7 @@ FOOTER_HTML = """
 </div>
 """
 
-# ========== 前端页面路由【修复：用send_from_directory，不用send_file】 ==========
+# ========== 前端页面路由 ==========
 @app.route('/')
 def index_page():
     if not is_login():
@@ -67,7 +67,7 @@ def standalone_page():
         return redirect(url_for('login'))
     return send_from_directory(BASE_DIR, "english-mastery-standalone.html")
 
-# 新增API接口，前端JS异步获取用户信息，替换原来html内jinja注入
+# 新增API接口，前端JS异步获取用户信息
 @app.route("/api/userinfo")
 def api_userinfo():
     u = get_current_user()
@@ -147,7 +147,7 @@ body {
     margin:0;
 }
 .box{
-    background:rgba(255,255,0.85);
+    background:rgba(255,255,255,0.85);
     max-width:500px;
     margin:80px auto;
     padding:20px;
@@ -190,7 +190,7 @@ body {
     margin:0;
 }
 .box{
-    background:rgba(255,255,0.85);
+    background:rgba(255,255,255,0.85);
     max-width:500px;
     margin:80px auto;
     padding:20px;
@@ -330,13 +330,12 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ========== ✅托管根目录静态文件，解决 styles.css / js/*.js / bg.webp 404 ==========
-# 必须放在所有业务路由最后！
+# ========== 托管根目录静态文件 ==========
 @app.route('/<path:filename>')
 def serve_root_static(filename):
     return send_from_directory(BASE_DIR, filename)
 
-# ========== 初始化数据库，创建管理员账号 admin / 123456 ==========
+# ========== 初始化数据库 ==========
 with app.app_context():
     db.create_all()
     # 初始化注册开关
