@@ -1,0 +1,27 @@
+# python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 本地数据库（容器会自己生成，不要把本地english.db打包进去）
+english.db
+*.db
+
+# git相关
+.git/
+.gitignore
+
+# 编辑器、系统文件
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 日志文件
+*.log
+
+# node相关（项目里有js，但不需要node依赖打包进python镜像）
+node_modules/
+npm-debug.log
