@@ -53,7 +53,7 @@ FOOTER_HTML = """
 </div>
 """
 
-# ========== 前端页面路由（题库首页 & 答题页，直接读取原始HTML，不再追加页脚！） ==========
+# ========== 前端页面路由 ==========
 @app.route('/')
 def index_page():
     if not is_login():
@@ -66,6 +66,7 @@ def index_page():
 def standalone_page():
     if not is_login():
         return redirect(url_for('login'))
+    # 读取原始文件，完全不做任何替换/追加，保持你原有页面原样输出
     with open("english-mastery-standalone.html", "r", encoding="utf-8") as f:
         html_content = f.read()
     return render_template_string(html_content)
