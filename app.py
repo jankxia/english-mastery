@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, redirect, url_for, session, flash, send_from_directory
+from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 import os
@@ -53,23 +53,20 @@ FOOTER_HTML = """
 </div>
 """
 
-# ========== 前端页面路由 ==========
+# ========== 前端页面路由【重点修改】 ==========
 @app.route('/')
 def index_page():
     if not is_login():
         return redirect(url_for('login'))
-    with open("index.html", "r", encoding="utf-8") as f:
-        html_content = f.read()
-    return render_template_string(html_content)
+    # send_file：直接返回文件，不经过Jinja模板引擎，不会解析{{ }}
+    return send_file("index.html")
 
 @app.route('/standalone')
 def standalone_page():
     if not is_login():
         return redirect(url_for('login'))
-    # 读取原始文件，完全不做任何替换/追加，保持你原有页面原样输出
-    with open("english-mastery-standalone.html", "r", encoding="utf-8") as f:
-        html_content = f.read()
-    return render_template_string(html_content)
+    # 完全原样读取english-mastery-standalone.html，不做任何处理
+    return send_file("english-mastery-standalone.html")
 
 # ========== 登录注册相关路由 ==========
 @app.route('/login', methods=['GET','POST'])
