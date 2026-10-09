@@ -2,14 +2,12 @@ from flask import Flask, render_template_string, request, redirect, url_for, ses
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 import os
-
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'english-mastery-secret-2026'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///english.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
-
 # ========== 数据库模型 ==========
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -17,32 +15,26 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     role = db.Column(db.String(20), default="user") # admin / user
     status = db.Column(db.Integer, default=1) # 1启用 0禁用
-
 # 用户学习答题数据，自动绑定用户ID，隔离
 class UserStudyRecord(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     record_json = db.Column(db.Text)
-
 # 系统配置
 class SysConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True)
     value = db.Column(db.String(50))
-
 # ========== 工具函数 ==========
 def get_config(key):
     r = SysConfig.query.filter_by(key=key).first()
     return r.value if r else "1"
-
 def is_login():
     return 'uid' in session
-
 def get_current_user():
     if not is_login():
         return None
     return User.query.get(session['uid'])
-
 # 页脚HTML，注入到所有页面底部
 FOOTER_HTML = """
 <div style="margin-top:40px;padding:20px;border-top:1px solid #ccc;font-size:12px;color:#666;">
@@ -51,7 +43,6 @@ FOOTER_HTML = """
 <p>联系邮箱： <a href="mailto:jankxia@163.com">jankxia@163.com</a></p>
 </div>
 """
-
 # 读取本地html文件，自动追加页脚
 def load_html_with_footer(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
@@ -59,7 +50,6 @@ def load_html_with_footer(filepath):
     # 在</body>之前插入页脚
     html = html.replace("</body>", FOOTER_HTML + "</body>")
     return html
-
 # ========== 前端页面路由（题库，需要登录鉴权） ==========
 @app.route('/')
 def index_page():
@@ -67,14 +57,12 @@ def index_page():
         return redirect(url_for('login'))
     html_content = load_html_with_footer("index.html")
     return render_template_string(html_content)
-
 @app.route('/standalone')
 def standalone_page():
     if not is_login():
         return redirect(url_for('login'))
     html_content = load_html_with_footer("english-mastery-standalone.html")
     return render_template_string(html_content)
-
 # ========== 登录注册相关路由 ==========
 @app.route('/login', methods=['GET','POST'])
 def login():
@@ -95,8 +83,24 @@ def login():
 <head>
 <meta charset="utf-8">
 <title>登录 English-Mastery</title>
+<style>
+body {
+    background: url("/bg.webp") no-repeat center center;
+    background-size: cover;
+    min-height: 100vh;
+    margin:0;
+}
+.box{
+    background:rgba(255,255,255,0.85);
+    max-width:500px;
+    margin:80px auto;
+    padding:20px;
+    border-radius:8px;
+}
+</style>
 </head>
-<body style="max-width:500px;margin:80px auto;padding:20px;">
+<body>
+<div class="box">
 <h2>登录</h2>
 <form method="post">
 <p>账号：<input name="username" style="width:100%;padding:6px;"></p>
@@ -105,11 +109,11 @@ def login():
 </form>
 <p><a href="/register">注册账号</a></p>
 """ + FOOTER_HTML + """
+</div>
 </body>
 </html>
 """
     return render_template_string(login_tpl)
-
 @app.route('/register', methods=['GET','POST'])
 def register():
     if get_config("register_open") != "1":
@@ -119,11 +123,28 @@ def register():
 <head>
 <meta charset="utf-8">
 <title>注册关闭</title>
+<style>
+body {
+    background: url("/bg.webp") no-repeat center center;
+    background-size: cover;
+    min-height: 100vh;
+    margin:0;
+}
+.box{
+    background:rgba(255,255,255,0.85);
+    max-width:500px;
+    margin:80px auto;
+    padding:20px;
+    border-radius:8px;
+}
+</style>
 </head>
-<body style="max-width:500px;margin:80px auto;padding:20px;">
+<body>
+<div class="box">
 <h2>注册功能已关闭，请联系管理员</h2>
 <p><a href="/login">返回登录</a></p>
 """ + FOOTER_HTML + """
+</div>
 </body>
 </html>
 """
@@ -145,8 +166,24 @@ def register():
 <head>
 <meta charset="utf-8">
 <title>注册账号</title>
+<style>
+body {
+    background: url("/bg.webp") no-repeat center center;
+    background-size: cover;
+    min-height: 100vh;
+    margin:0;
+}
+.box{
+    background:rgba(255,255,255,0.85);
+    max-width:500px;
+    margin:80px auto;
+    padding:20px;
+    border-radius:8px;
+}
+</style>
 </head>
-<body style="max-width:500px;margin:80px auto;padding:20px;">
+<body>
+<div class="box">
 <h2>注册</h2>
 <form method="post">
 <p>账号：<input name="username" style="width:100%;padding:6px;"></p>
@@ -155,11 +192,11 @@ def register():
 </form>
 <p><a href="/login">返回登录</a></p>
 """ + FOOTER_HTML + """
+</div>
 </body>
 </html>
 """
     return render_template_string(reg_tpl)
-
 @app.route('/change_pwd', methods=['GET','POST'])
 def change_pwd():
     u = get_current_user()
@@ -180,8 +217,24 @@ def change_pwd():
 <head>
 <meta charset="utf-8">
 <title>修改密码</title>
+<style>
+body {
+    background: url("/bg.webp") no-repeat center center;
+    background-size: cover;
+    min-height: 100vh;
+    margin:0;
+}
+.box{
+    background:rgba(255,255,255,0.85);
+    max-width:500px;
+    margin:80px auto;
+    padding:20px;
+    border-radius:8px;
+}
+</style>
 </head>
-<body style="max-width:500px;margin:80px auto;padding:20px;">
+<body>
+<div class="box">
 <h2>修改密码</h2>
 <form method="post">
 <p>原密码：<input type="password" name="old" style="width:100%;padding:6px;"></p>
@@ -190,11 +243,11 @@ def change_pwd():
 </form>
 <p><a href='/'>返回首页</a></p>
 """ + FOOTER_HTML + """
+</div>
 </body>
 </html>
 """
     return render_template_string(pwd_tpl)
-
 @app.route('/admin', methods=['GET','POST'])
 def admin_panel():
     u = get_current_user()
@@ -218,8 +271,24 @@ def admin_panel():
 <head>
 <meta charset="utf-8">
 <title>管理员后台</title>
+<style>
+body {{
+    background: url("/bg.webp") no-repeat center center;
+    background-size: cover;
+    min-height: 100vh;
+    margin:0;
+}}
+.box{{
+    background:rgba(255,255,255,0.85);
+    max-width:800px;
+    margin:40px auto;
+    padding:20px;
+    border-radius:8px;
+}}
+</style>
 </head>
-<body style="max-width:800px;margin:40px auto;padding:20px;">
+<body>
+<div class="box">
 <h2>管理员后台</h2>
 <form method="post">
     <p>公开注册：
@@ -235,20 +304,17 @@ def admin_panel():
     for us in users:
         status_txt = "✅启用" if us.status else "❌禁用"
         body += f"<p>{us.username} | 角色:{us.role} | {status_txt} <form method='post' style='display:inline'><input name='toggle_uid' value='{us.id}' hidden><button>切换账号状态</button></form></p>"
-    body += "<p><a href='/'>返回学习主页</a></p>" + FOOTER_HTML + "</body></html>"
+    body += "<p><a href='/'>返回学习主页</a></p>" + FOOTER_HTML + "</div></body></html>"
     return render_template_string(body)
-
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
-
-# ========== ✅新增：托管根目录静态文件，解决 styles.css / js/*.js 404 ==========
+# ========== ✅托管根目录静态文件，解决 styles.css / js/*.js / bg.webp 404 ==========
 # 必须放在所有业务路由最后！
 @app.route('/<path:filename>')
 def serve_root_static(filename):
     return send_from_directory(os.path.dirname(__file__), filename)
-
 # ========== 初始化数据库，创建管理员账号 admin / 123456 ==========
 with app.app_context():
     db.create_all()
@@ -260,6 +326,5 @@ with app.app_context():
         hashpwd = bcrypt.generate_password_hash("123456").decode('utf-8')
         db.session.add(User(username="admin", password=hashpwd, role="admin"))
     db.session.commit()
-
 if __name__ == '__main__':
     app.run(debug=False, host="0.0.0.0", port=3007)
