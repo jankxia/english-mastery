@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  english-mastery:
+    build: .
+    container_name: english-mastery
+    restart: unless-stopped
+    ports:
+      - "3007:3007"
+    volumes:
+      - ./english.db:/app/english.db # 持久化数据库，删除容器数据不丢失
+    environment:
+      - TZ=Asia/Shanghai
