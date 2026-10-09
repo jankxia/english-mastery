@@ -30,18 +30,22 @@
 <body>
 <div class="main-wrap">
   <!-- 由Flask注入登录信息，传给JS -->
-  <script>
-    window.LOGIN_USER = {
-      username: "{{ get_current_user().username if get_current_user() else '' }}",
-      isAdmin: {{ "true" if (get_current_user() and get_current_user().role == 'admin') else "false" }}
-    }
-    // 后端路由地址
+<script>
     window.ROUTES = {
       logout: "/logout",
       admin: "/admin",
       changePwd: "/change_pwd"
     }
-  </script>
+    // 兜底初始化，防止app.js提前读取
+    window.LOGIN_USER = {username:"", isAdmin:false};
+    // 异步请求用户信息
+    fetch("/api/userinfo")
+    .then(res=>res.json())
+    .then(data=>{
+        window.LOGIN_USER = data;
+        // 如果app.js依赖用户信息渲染，可以在这里触发一次页面刷新渲染
+    })
+</script>
   <!-- 顶栏与内容由 app.js 注入 -->
   <script src="js/data.js"></script>
   <script src="js/sentences.js"></script>
