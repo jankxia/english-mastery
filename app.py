@@ -331,7 +331,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ========== 托管根目录静态文件（bg.webp / js/xxx.js） ==========
+# ========== 托管根目录静态文件（bg.webp / js/xxx.js / styles.css） ==========
 @app.route('/<path:filename>')
 def serve_root_static(filename):
     return send_from_directory(BASE_DIR, filename)
