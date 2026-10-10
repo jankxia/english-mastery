@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, jsonify, render_template_string
+from flask import Flask, request, redirect, url_for, session, flash, send_from_directory, jsonify, render_template_string, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 import os
@@ -334,6 +334,9 @@ def logout():
 # ========== 托管根目录静态文件（bg.webp / js/xxx.js / styles.css） ==========
 @app.route('/<path:filename>')
 def serve_root_static(filename):
+    # API请求跳过静态路由，交给上面的接口处理
+    if filename.startswith("api/"):
+        abort(404)
     return send_from_directory(BASE_DIR, filename)
 
 # ========== 初始化数据库 ==========
