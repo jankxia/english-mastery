@@ -2052,3 +2052,47 @@
     route();
   });
 })();
+// 页面加载完成，获取登录用户信息，渲染右上角导航
+async function loadUserInfo() {
+  try {
+    const resp = await fetch("/api/userinfo");
+    const user = await resp.json();
+    renderTopNav(user);
+  } catch (err) {
+    console.error("获取用户信息失败", err);
+  }
+}
+
+// 渲染右上角账户菜单
+function renderTopNav(user) {
+  const navWrap = document.querySelector(".top-nav-right");
+  if (!navWrap) {
+    // 如果页面没有.top-nav-right容器，自动创建一个放到页面顶部
+    const newWrap = document.createElement("div");
+    newWrap.className = "top-nav-right";
+    newWrap.style.position = "absolute";
+    newWrap.style.top = "12px";
+    newWrap.style.right = "20px";
+    newWrap.style.zIndex = "999";
+    newWrap.style.display = "flex";
+    newWrap.style.gap = "14px";
+    document.body.appendChild(newWrap);
+    navWrap = newWrap;
+  }
+
+  if(user.username){
+    let html = `<span>👤 ${user.username}</span>`;
+    // 如果是管理员，增加后台管理入口
+    if(user.isAdmin){
+      html += `<a href="/admin" style="margin-left:8px;">⚙️管理后台</a>`;
+    }
+    // 退出登录按钮
+    html += `<a href="/logout" style="margin-left:8px;color:#d33;">🚪退出登录</a>`;
+    navWrap.innerHTML = html;
+  }
+}
+
+// 页面DOM加载完毕自动执行
+document.addEventListener('DOMContentLoaded', function(){
+  loadUserInfo();
+});
