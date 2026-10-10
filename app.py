@@ -7,7 +7,6 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'english-mastery-secret-2026'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///english.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -59,15 +58,17 @@ FOOTER_HTML = """
 def index_page():
     if not is_login():
         return redirect(url_for('login'))
+    # 重点：直接返回原始index.html，不经过jinja渲染，解决页面空白
     return send_from_directory(BASE_DIR, "index.html")
 
 @app.route('/standalone')
 def standalone_page():
     if not is_login():
         return redirect(url_for('login'))
+    # 访问 english-mastery-standalone.html，同样原始文件返回
     return send_from_directory(BASE_DIR, "english-mastery-standalone.html")
 
-# 新增API接口，前端JS异步获取用户信息
+# 新增API接口，前端JS异步获取用户信息（右上角账户/退出按钮读取）
 @app.route("/api/userinfo")
 def api_userinfo():
     u = get_current_user()
@@ -330,7 +331,7 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ========== 托管根目录静态文件 ==========
+# ========== 托管根目录静态文件（bg.webp / js/xxx.js） ==========
 @app.route('/<path:filename>')
 def serve_root_static(filename):
     return send_from_directory(BASE_DIR, filename)
